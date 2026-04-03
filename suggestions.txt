@@ -1,0 +1,58 @@
+1. WebSearchTool & WebFetchTool (The "Internet" Gap)
+
+Why you need it: Currently, Artifica only knows what was in its training data (up to 2024) and what is in your local files. It cannot check the weather, read today's news, or look up a new library's documentation.
+
+    WebSearch: Allows the AI to get a list of URLs based on a query.
+
+    WebFetch: Allows the AI to "read" the text content of a specific URL.
+
+    Use Case: "Artifica, look up the latest version of the Ollama API and update my script to use it."
+
+2. REPLTool (The "Interactive Brain")
+
+Why you need it: Instead of Artifica writing a file (test.py) and running it via bash, a REPL (Read-Eval-Print Loop) lets the AI run Python code in a persistent state.
+
+    Difference from Bash: If Artifica defines a variable in one turn, it stays in memory for the next turn.
+
+    Use Case: Doing complex math, data processing, or testing small logic snippets without cluttering your directory with temporary files.
+
+3. ScheduleCronTool (The "Automation" Gap)
+
+Why you need it: Your current assistant only works when you are typing in the terminal. If you close the terminal, Artifica "dies."
+
+    What it does: It lets Artifica write a "Cron Job" (a scheduled task) to your Mac.
+
+    Use Case: "Artifica, every morning at 9 AM, scan my project folder and give me a summary of what I changed yesterday."
+
+4. TaskCreate / TaskListTool (The "Memory" Gap)
+
+Why you need it: AI agents often lose track of long-term goals in a long conversation.
+
+    What it does: It gives the AI a dedicated "To-Do List" that it can refer to. Instead of just relying on the chat history, it can "pin" important goals.
+
+    Use Case: "We are starting a big project. Create a task list for the 5 files we need to build, and check them off as we finish them."
+
+What to IGNORE (Not useful for you):
+
+    PowerShellTool: You are on a Mac. Bash/Zsh does everything you need; PowerShell is for Windows environments.
+
+    SuggestBackgroundPRTool: This is for professional software teams using GitHub to manage code reviews. For a local assistant, it’s overkill.
+
+    SleepTool: Usually used in complex automated testing; you don't want your AI "sleeping" while you're waiting for an answer.
+
+    TeamCreate/Delete: These are for multi-agent systems where one AI manages other AIs. Since you have one Artifica, you don't need "teams."
+
+My Recommendation for your next step:
+
+If you want to keep building, WebSearchTool is the biggest upgrade.
+
+How to add it cheaply:
+You don't need a complex framework. You can just add a new function to your actions.py called web_search using the duckduckgo-search library:
+
+    pip install duckduckgo-search
+
+    Add a web_search function to actions.py.
+
+    Add the web_search tool definition to your tools list in main.py.
+
+Would you like me to show you how to integrate the WebSearch tool into your current Artifica code?

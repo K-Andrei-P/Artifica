@@ -1,0 +1,12 @@
+# Ignore the virtual environment
+bin/
+include/
+lib/
+pyvenv.cfg
+
+# Ignore Python cache files
+__pycache__/
+*.pyc
+
+# (Optional) Ignore macOS system files
+.DS_Store
