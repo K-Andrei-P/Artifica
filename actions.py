@@ -25,7 +25,7 @@ def run_bash(command: str, root_dir: str):
     cmd_clean = command.strip().lower()
 
     # 1. Define strictly read-only commands
-    safe_prefixes = ("ls", "pwd", "whoami", "echo")
+    safe_prefixes = ("ls", "pwd", "whoami", "echo", "cat")
     
     # 2. Define "Danger Indicators" that force a confirmation 
     # even if the command starts with a safe prefix

@@ -1,0 +1,5 @@
+Unimplemented improvements:
+1. WebSearchTool & WebFetchTool
+2. REPLTool
+3. ScheduleCronTool
+4. TaskCreate / TaskListTool
