@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# 1. Configuration - REPLACE the path below with your actual path
+APP_DIR="/Users/artificus/Documents/GitHubProjects/Artifica"
+MODEL="qwen2.5-coder:14b"
+
+echo "--- Initializing Artifica Environment ---"
+
+# 2. Check if Ollama is even running, if not, start the App
+if ! pgrep -x "ollama" > /dev/null; then
+    echo "Ollama is not running. Starting Ollama app..."
+    open -a Ollama
+    # Give it a few seconds to initialize the server
+    sleep 5
+fi
+
+# 3. Ensure the model is pulled and loaded
+# We pipe an empty string into the run command so it triggers a load/check 
+# but exits immediately instead of opening the interactive chat.
+echo "Checking model: $MODEL..."
+echo "" | ollama run $MODEL > /dev/null 2>&1
+
+# 4. Run the Python application using the venv interpreter
+echo "Launching Engine..."
+$APP_DIR/bin/python $APP_DIR/main.py "$@"
