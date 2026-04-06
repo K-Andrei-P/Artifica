@@ -75,7 +75,7 @@ def write_file(filename: str, content: str, root_dir: str):
         return f"Error writing file: {str(e)}"
 
 def web_search(query: str):
-    print(f"search: {query}")
+    print(f"  [Searching: {query}]")
     try:
         results = []
         with DDGS() as ddgs:

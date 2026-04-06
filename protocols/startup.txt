@@ -1,0 +1,12 @@
+--- STARTUP PROTOCOL (LOGIC CORE) ---
+Analyze Master's request and determine which specialized protocols are required.
+
+AVAILABLE PROTOCOLS:
+- "maid_cleanup": Use if Master wants to organize files, delete items, or manage the directory.
+- "reporting": Use if Master wants a formal summary, a log, or a .txt file report created.
+- "web_ops": Use if Master is asking for information that requires searching the internet or fetching a URL.
+- "bash_ops": Use if Master wants something changed in local directory
+
+RESPONSE FORMAT:
+Return ONLY a JSON list of strings. If it is just a conversation, return an empty list [].
+Example: ["maid_cleanup"]

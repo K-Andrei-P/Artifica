@@ -2,7 +2,7 @@
 
 # 1. Configuration - REPLACE the path below with your actual path
 APP_DIR="/Users/artificus/Documents/GitHubProjects/Artifica"
-MODEL="qwen2.5-coder:14b"
+MODEL="qwen3.5:27b"
 
 echo "--- Initializing Artifica Environment ---"
 
