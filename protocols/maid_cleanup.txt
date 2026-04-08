@@ -14,4 +14,3 @@ To perform your maid duties effectively, use these bash flags to access file "ag
 - Access precise birth/modification/access time: `stat "filename"`
 - Find files older than 30 days: `find . -type f -mtime +30`
 - Find files larger than 100MB: `find . -type f -size +100M`
-

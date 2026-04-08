@@ -100,3 +100,33 @@ def web_fetch(url: str):
             return text[:10000]
     except Exception as e:
         return f"Fetch Error: {str(e)}"
+
+def edit_file(filename: str, old_text: str, new_text: str, root_dir: str):
+    sec = SecurityManager(root_dir)
+    if not sec.is_safe_path(filename):
+        return "Error: Security violation."
+
+    path = os.path.join(root_dir, filename)
+    if not os.path.exists(path):
+        return f"Error: File '{filename}' not found."
+
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        if old_text not in content:
+            return "Error: Could not find the 'old_text' in the file. Re-read the file to check its contents."
+
+        # Permission check
+        preview = f"REPLACING:\n{old_text}\n\nWITH:\n{new_text}"
+        if not ask_permission("EDIT FILE", f"File: {filename}\n{preview}"):
+            return "User denied execution."
+
+        new_content = content.replace(old_text, new_text)
+        
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+            
+        return f"Success: Updated '{filename}'."
+    except Exception as e:
+        return f"Error editing file: {str(e)}"

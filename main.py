@@ -6,7 +6,7 @@ from actions import run_bash, write_file, web_search, web_fetch
 
 ROOT_DIR = os.getcwd()
 MODEL = "qwen2.5-coder:14b"
-PROTOCOLS_DIR = "protocols"
+PROTOCOLS_DIR = "/Users/artificus/Documents/GitHubProjects/Artifica/protocols"
 
 tools = [
     {
@@ -65,7 +65,24 @@ tools = [
                 'required': ['url'],
             },
         }
+    },
+    {
+    'type': 'function',
+    'function': {
+        'name': 'edit_file',
+        'description': 'Replace a specific block of text in a file with new text.',
+        'parameters': {
+            'type': 'object',
+            'properties': {
+                'filename': {'type': 'string', 'description': 'The file to edit.'},
+                'old_text': {'type': 'string', 'description': 'The exact text to be replaced.'},
+                'new_text': {'type': 'string', 'description': 'The new text to insert.'},
+            },
+            'required': ['filename', 'old_text', 'new_text'],
+            },
+        }
     }
+    
 ]
 
 class ArtificaPipeline:
@@ -86,12 +103,16 @@ class ArtificaPipeline:
             with open(path, 'r') as f:
                 return f.read().replace("{ROOT_DIR}", ROOT_DIR)
         return ""
-
+        
     def router_phase(self, user_input):
         startup_rules = self.load_protocol_text("startup.txt")
+        
+        # Give the router the last 2 items from memory so it has context
+        context = "\n".join(self.memory_bank[-2:]) if self.memory_bank else "No previous context."
+        
         messages = [
             {"role": "system", "content": startup_rules},
-            {"role": "user", "content": f"Analyze this request from Master: '{user_input}'"}
+            {"role": "user", "content": f"Context: {context}\nMaster's Request: {user_input}\nAnalyze and return the JSON list."}
         ]
         response = ollama.chat(model=MODEL, messages=messages)
         content = response.message.content
@@ -158,54 +179,50 @@ def get_compact_summary(user_msg, assistant_msg, protocol_loader):
     except:
         return None
 
-def run_ai_loop(messages, pipeline, system_prompt=None):
-    """
-    Added 'pipeline' as an argument so the loop can update 
-    the RAM-based memory_bank.
-    """
+def run_ai_loop(messages, pipeline, system_prompt=None, allow_tools=True):
+    # Ensure system prompt is set
     if messages and messages[0]['role'] == 'system':
         messages[0]['content'] = system_prompt
     else:
         messages.insert(0, {'role': 'system', 'content': system_prompt})
 
-    while True:
-        response = ollama.chat(model=MODEL, messages=messages, tools=tools)
+    retry_count = 0
+    loop_limit = 10
+    
+    for _ in range(loop_limit):
+        current_tools = tools if allow_tools else None
+        response = ollama.chat(model=MODEL, messages=messages, tools=current_tools)
         msg = response.message
         
+        # 1. Error Handling: Nudge if the AI gives up too easily
         gave_up_phrases = ["unable to access", "cannot browse", "visit the links", "external websites"]
         if any(phrase in msg.content.lower() for phrase in gave_up_phrases) and retry_count < 2:
-            print("  [System Nudge: Forcing Artifica to retry with a different source...]")
             messages.append(msg)
-            messages.append({
-                'role': 'user', 
-                'content': "Error: You HAVE web tools. If one URL fails, try another one from your search results. Do not apologize, just find the data."
-            })
+            messages.append({'role': 'user', 'content': "Error: You HAVE tools. If one method fails, try another. Do not apologize, just execute."})
             retry_count += 1
             continue
 
         tool_called = False
-        # 1. Handle Native Tool Calls
+
+        # 2. Handle Native Tool Calls
         if hasattr(msg, 'tool_calls') and msg.tool_calls:
             messages.append(msg)
             for call in msg.tool_calls:
                 func_name = call.function.name
                 args = call.function.arguments
                 
-                # Validation
-                if func_name == 'run_bash' and args.get('command', '').strip().startswith('echo'):
-                    messages.append({'role': 'tool', 'content': "Error: Use plain text."})
-                    continue
-
                 print(f"  [Artifica executing {func_name}...]")
                 if func_name == 'run_bash': result = run_bash(args.get('command', ''), ROOT_DIR)
                 elif func_name == 'write_file': result = write_file(args.get('filename', ''), args.get('content', ''), ROOT_DIR)
+                elif func_name == 'edit_file': result = edit_file(args.get('filename', ''), args.get('old_text', ''), args.get('new_text', ''), ROOT_DIR)
                 elif func_name == 'web_search': result = web_search(args.get('query', ''))
                 elif func_name == 'web_fetch': result = web_fetch(args.get('url', ''))
                 else: result = f"Error: Tool '{func_name}' not recognized."
+                
                 messages.append({'role': 'tool', 'content': result})
                 tool_called = True
         
-        # 2. Handle Hallucinated JSON
+        # 3. Handle Hallucinated JSON
         else:
             json_blocks = extract_json_blocks(msg.content)
             if json_blocks:
@@ -216,26 +233,15 @@ def run_ai_loop(messages, pipeline, system_prompt=None):
                         name = data.get("name") or data.get("tool")
                         args = data.get("arguments") or data.get("args") or data
                         
-                        if not name:
+                        if not name: 
                             if "command" in data: name = "run_bash"
                             elif "filename" in data: name = "write_file"
-                            elif "query" in data: name = "web_search"
-                            elif "url" in data: name = "web_fetch"
+                            elif "old_text" in data: name = "edit_file"
 
                         print(f"  [Artifica executing hallucinated {name}...]")
                         if name == 'run_bash': result = run_bash(args.get('command', ''), ROOT_DIR)
-                        elif name == 'write_file':
-                                filename = args.get('filename', '')
-                                content = args.get('content', '')
-
-                                # --- FIX: PLACEHOLDER DETECTION ---
-                                placeholders = ["<tool_response>", "<tool_output>", "None", "undefined", "[RESULT]"]
-                                if any(p in content.lower() for p in placeholders) or len(content.strip()) < 5:
-                                    result = "Error: You attempted to write a placeholder or empty content. " \
-                                            "You must wait for the web_fetch/web_search results to return " \
-                                            "to you before you can write them to a file."
-                                else:
-                                    result = write_file(filename, content, ROOT_DIR)
+                        elif name == 'write_file': result = write_file(args.get('filename', ''), args.get('content', ''), ROOT_DIR)
+                        elif name == 'edit_file': result = edit_file(args.get('filename', ''), args.get('old_text', ''), args.get('new_text', ''), ROOT_DIR)
                         elif name == 'web_search': result = web_search(args.get('query', ''))
                         elif name == 'web_fetch': result = web_fetch(args.get('url', ''))
                         else: continue 
@@ -245,25 +251,20 @@ def run_ai_loop(messages, pipeline, system_prompt=None):
                     except Exception as e:
                         messages.append({'role': 'tool', 'content': f"JSON Error: {e}"})
                         tool_called = True
-                        continue
 
-        # --- COMPACTION LOGIC (IF FINAL RESPONSE) ---
         if not tool_called:
-            # Get the original user input from the message history
             user_input = "N/A"
             for m in reversed(messages):
                 if m['role'] == 'user':
                     user_input = m['content']
                     break
             
-            # Use the compaction prompt to summarize
             summary = get_compact_summary(user_input, msg.content, pipeline.load_protocol_text)
             if summary:
                 pipeline.memory_bank.append(summary)
-                print(pipeline.memory_bank)
-                print(f"  [Memory compacted and stored in RAM]")
-
             return msg.content
+
+    return "Error: Maximum execution steps reached (Loop Protection)."
 
 def main():
     pipeline = ArtificaPipeline()
@@ -277,8 +278,7 @@ def main():
     initial_msg = [{'role': 'system', 'content': greeting_prompt},
                    {'role': 'user', 'content': 'Greet me briefly and tell me you are at my service.'}]
     
-    # Note: Added pipeline to argument
-    greeting = run_ai_loop(initial_msg, pipeline, greeting_prompt)
+    greeting = run_ai_loop(initial_msg, pipeline, greeting_prompt, allow_tools=False)
     print(f"\nArtifica: {greeting}")
 
     while True:
@@ -289,10 +289,10 @@ def main():
             
             print(f"  [Analyzing protocols...]")
             needed_protocols = pipeline.router_phase(user_input)
+            print(f"  [Needed protocols: {needed_protocols}]")
             dynamic_system_prompt = pipeline.assemble_final_prompt(user_input, needed_protocols)
             
             messages.append({'role': 'user', 'content': user_input})
-            # Note: Added pipeline to argument
             answer = run_ai_loop(messages, pipeline, dynamic_system_prompt)
             
             if "[EXIT_SESSION]" in answer:
